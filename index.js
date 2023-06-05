@@ -1,5 +1,7 @@
 const express = require('express')
 const cors = require('cors')
+var jwt = require('jsonwebtoken');
+// require('crypto').randomBytes(64).toString('hex')
 require('dotenv').config()
 const PORT = process.env.PORT || 5000
 
@@ -27,15 +29,60 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
+    const userCollection = client.db("bistroDB").collection("users")
     const menuCollection = client.db("bistroDB").collection("menu")
     const cartCollection = client.db("bistroDB").collection("carts")
 
-    // User related API
-    app.post('users', async (req, res) => {
+
+    app.post('/jwt', (req, res) => {
 
       const user = req.body
 
-      const result = await cartCollection.insertOne(user)
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+        expiresIn: '1h'
+      })
+
+      res.send({token})
+
+    })
+
+
+
+    // User related API
+    app.get('/users', async (req, res) => {
+
+      const result = await userCollection.find().toArray()
+      res.send(result)
+    })
+
+    app.post('/users', async (req, res) => {
+
+      const user = req.body
+
+      const query = { email: user.email }
+      const existingUser = await userCollection.findOne(query)
+
+      if (existingUser) {
+        return res.send({ message: 'User is already exist' })
+      }
+
+      const result = await userCollection.insertOne(user)
+      res.send(result)
+    })
+
+    app.patch('/users/admin/:_id', async (req, res) => {
+
+      const _id = req.params._id
+
+      const filter = { _id: new ObjectId(_id) }
+
+      const updateDoc = {
+        $set: {
+          role: 'admin'
+        }
+      }
+
+      const result = await userCollection.updateOne(filter, updateDoc)
       res.send(result)
     })
 
